@@ -117,7 +117,7 @@ func TestRead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := Read(strings.NewReader(tt.args.source), true, limits.MaxGifDuration)
+			got, err := Read(strings.NewReader(tt.args.source), true, limits.MaxMediaDuration)
 			if tt.wantErr != nil {
 				tt.wantErr(t, err)
 			}

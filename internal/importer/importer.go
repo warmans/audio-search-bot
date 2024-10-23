@@ -107,7 +107,7 @@ func (i *Incremental) startFileWatch(ctx context.Context) error {
 				if !ok {
 					return
 				}
-				i.logger.Info("error:", err)
+				i.logger.Error("watcher error", slog.String("err", err.Error()))
 			case <-ticker.C:
 				if len(pendingFiles) > 0 {
 					if err := i.importNewSRT(ctx, pendingFiles); err != nil {

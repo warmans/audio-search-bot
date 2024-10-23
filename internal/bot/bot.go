@@ -22,8 +22,6 @@ import (
 	"time"
 )
 
-const defaultContext = 0
-
 var punctuation = regexp.MustCompile(`[^a-zA-Z0-9\s]+`)
 var spaces = regexp.MustCompile(`[\s]{2,}`)
 var metaWhitespace = regexp.MustCompile(`[\n\r\t]+`)
@@ -577,6 +575,7 @@ func createFileName(dialog []model.Dialog, suffix string) string {
 
 func contentToFilename(rawContent string) string {
 	rawContent = punctuation.ReplaceAllString(rawContent, "")
+	rawContent = metaWhitespace.ReplaceAllString(rawContent, " ")
 	rawContent = spaces.ReplaceAllString(rawContent, " ")
 	rawContent = strings.ToLower(strings.TrimSpace(rawContent))
 
