@@ -1,0 +1,6 @@
+/bin
+*.private
+.idea
+.env
+var/*.sqlite3
+var/*.sqlite3-*
