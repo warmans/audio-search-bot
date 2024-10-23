@@ -9,8 +9,8 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "tvgif",
-		Short: "Discord bot for posting TV show gifs",
+		Use:   "audio-search-bot",
+		Short: "Discord bot for searching audio files",
 	}
 )
 

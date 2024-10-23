@@ -13,6 +13,6 @@ WORKDIR /opt/audio-search-bot
 
 COPY --chown=nobody bin/audio-search-bot .
 
-RUN chmod +x tvgif
+RUN chmod +x audio-search-bot
 
 CMD ["/opt/audio-search-bot/audio-search-bot", "bot"]
