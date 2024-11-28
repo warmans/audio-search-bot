@@ -159,7 +159,7 @@ func (b *Bot) queryBegin(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			b.respondError(s, i, err)
 			return
 		}
-		if err := b.sendPreview(s, i, customID); err != nil {
+		if err := b.sendPreview(s, i, customID, false); err != nil {
 			b.respondError(s, i, err)
 			return
 		}
@@ -232,7 +232,7 @@ func (b *Bot) updatePreview(
 		return
 	}
 
-	if err := b.sendPreview(s, i, customID); err != nil {
+	if err := b.sendPreview(s, i, customID, true); err != nil {
 		b.respondError(s, i, err)
 		return
 	}
@@ -242,13 +242,32 @@ func (b *Bot) sendPreview(
 	s *discordgo.Session,
 	i *discordgo.InteractionCreate,
 	customID CustomID,
+	update bool,
 ) error {
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
-	}); err != nil {
-		return err
+	if !update {
+		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "⏳ Fetching...",
+			},
+		}); err != nil {
+			return err
+		}
+	} else {
+		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Flags:       discordgo.MessageFlagsEphemeral,
+				Content:     "⏳ Updating...",
+				Files:       []*discordgo.File{},
+				Components:  []discordgo.MessageComponent{},
+				Attachments: util.ToPtr([]*discordgo.MessageAttachment{}),
+			},
+		}); err != nil {
+			return err
+		}
 	}
 
 	username := "unknown"
@@ -265,14 +284,11 @@ func (b *Bot) sendPreview(
 	interactionResponse.Components = b.buttons(customID)
 	interactionResponse.Flags = discordgo.MessageFlagsEphemeral
 
-	if _, err := s.FollowupMessageCreate(
-		i.Interaction,
-		false,
-		interactionResponse,
-	); err != nil {
-		b.logger.Error("failed update response", slog.String("err", err.Error()))
-		return err
-	}
+	_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content:    util.ToPtrOrNil(interactionResponse.Content),
+		Files:      interactionResponse.Files,
+		Components: util.ToPtr(interactionResponse.Components),
+	})
 
 	return nil
 }
@@ -312,8 +328,12 @@ func (b *Bot) queryComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 		b.respondError(s, i, err)
 		return
 	}
-	if _, err = s.FollowupMessageCreate(i.Interaction, false, interactionResponse); err != nil {
+	if _, err = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+		Content: interactionResponse.Content,
+		Files:   interactionResponse.Files,
+	}); err != nil {
 		b.respondError(s, i, err)
+		return
 	}
 }
 
@@ -476,7 +496,7 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 func (b *Bot) audioFileResponse(
 	customID CustomID,
 	username string,
-) (*discordgo.WebhookParams, error) {
+) (*discordgo.InteractionResponseData, error) {
 
 	dialog, err := b.srtStore.GetDialogRange(customID.MediaID, customID.StartLine, customID.EndLine)
 	if err != nil {
@@ -520,10 +540,10 @@ func (b *Bot) audioFileResponse(
 	} else {
 		content = fmt.Sprintf("Posted by %s", username)
 	}
-	return &discordgo.WebhookParams{
+	return &discordgo.InteractionResponseData{
 		Content:     content,
 		Files:       files,
-		Attachments: []*discordgo.MessageAttachment{},
+		Attachments: util.ToPtr([]*discordgo.MessageAttachment{}),
 	}, nil
 }
 
