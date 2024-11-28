@@ -10,7 +10,7 @@ import (
 )
 
 const minLineDuration = time.Second * 1
-const maxLineDuration = time.Second * 5
+const maxLineDuration = time.Second * 30
 
 // ToSrt not tested
 func ToSrt(rawData aai.Transcript, outputWriter io.Writer) error {

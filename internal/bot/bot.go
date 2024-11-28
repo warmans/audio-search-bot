@@ -290,7 +290,7 @@ func (b *Bot) sendPreview(
 		Components: util.ToPtr(interactionResponse.Components),
 	})
 
-	return nil
+	return err
 }
 
 func (b *Bot) queryComplete(s *discordgo.Session, i *discordgo.InteractionCreate, customIDPayload string) {
