@@ -154,13 +154,12 @@ func (b *Bot) queryBegin(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			return
 		}
 
-		fmt.Println(selection)
 		customID, err := decodeCustomIDPayload(selection)
 		if err != nil {
 			b.respondError(s, i, err)
 			return
 		}
-		if err := b.beginAudioResponse(s, i, customID); err != nil {
+		if err := b.sendPreview(s, i, customID); err != nil {
 			b.respondError(s, i, err)
 			return
 		}
@@ -232,34 +231,26 @@ func (b *Bot) updatePreview(
 		b.respondError(s, i, err)
 		return
 	}
-	username := "unknown"
-	if i.Member != nil {
-		username = i.Member.DisplayName()
-	}
 
-	interactionResponse, err := b.audioFileResponse(customID, username)
-	if err != nil {
-		b.respondError(s, i, err)
-		return
-	}
-
-	interactionResponse.Data.Components = b.buttons(customID)
-	interactionResponse.Data.Flags = discordgo.MessageFlagsEphemeral
-
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
-		Data: interactionResponse.Data,
-	}); err != nil {
+	if err := b.sendPreview(s, i, customID); err != nil {
 		b.respondError(s, i, err)
 		return
 	}
 }
 
-func (b *Bot) beginAudioResponse(
+func (b *Bot) sendPreview(
 	s *discordgo.Session,
 	i *discordgo.InteractionCreate,
 	customID CustomID,
 ) error {
+
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+	}); err != nil {
+		return err
+	}
+
 	username := "unknown"
 	if i.Member != nil {
 		username = i.Member.DisplayName()
@@ -271,13 +262,59 @@ func (b *Bot) beginAudioResponse(
 		return err
 	}
 
-	interactionResponse.Data.Flags = discordgo.MessageFlagsEphemeral
-	interactionResponse.Data.Components = b.buttons(customID)
-	err = s.InteractionRespond(i.Interaction, interactionResponse)
-	if err != nil {
-		b.logger.Error("failed to respond", slog.String("err", err.Error()))
+	interactionResponse.Components = b.buttons(customID)
+	interactionResponse.Flags = discordgo.MessageFlagsEphemeral
+
+	if _, err := s.FollowupMessageCreate(
+		i.Interaction,
+		false,
+		interactionResponse,
+	); err != nil {
+		b.logger.Error("failed update response", slog.String("err", err.Error()))
+		return err
 	}
+
 	return nil
+}
+
+func (b *Bot) queryComplete(s *discordgo.Session, i *discordgo.InteractionCreate, customIDPayload string) {
+
+	if i.Type != discordgo.InteractionMessageComponent {
+		return
+	}
+
+	if customIDPayload == "" {
+		b.respondError(s, i, fmt.Errorf("missing customID"))
+		return
+	}
+	customID, err := decodeCustomIDPayload(customIDPayload)
+	if err != nil {
+		b.respondError(s, i, fmt.Errorf("failed to decode customID: %w", err))
+		return
+	}
+
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{},
+	}); err != nil {
+		b.respondError(s, i, fmt.Errorf("failed to begin interaction: %w", err))
+		return
+	}
+
+	username := "unknown"
+	if i.Member != nil {
+		username = i.Member.DisplayName()
+	}
+
+	// respond audio
+	interactionResponse, err := b.audioFileResponse(customID, username)
+	if err != nil {
+		b.respondError(s, i, err)
+		return
+	}
+	if _, err = s.FollowupMessageCreate(i.Interaction, false, interactionResponse); err != nil {
+		b.respondError(s, i, err)
+	}
 }
 
 func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
@@ -436,42 +473,10 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 	return buttons
 }
 
-func (b *Bot) queryComplete(s *discordgo.Session, i *discordgo.InteractionCreate, customIDPayload string) {
-
-	if i.Type != discordgo.InteractionMessageComponent {
-		return
-	}
-
-	if customIDPayload == "" {
-		b.respondError(s, i, fmt.Errorf("missing customID"))
-		return
-	}
-	customID, err := decodeCustomIDPayload(customIDPayload)
-	if err != nil {
-		b.respondError(s, i, fmt.Errorf("failed to decode customID: %w", err))
-		return
-	}
-
-	username := "unknown"
-	if i.Member != nil {
-		username = i.Member.DisplayName()
-	}
-
-	// respond audio
-	interactionResponse, err := b.audioFileResponse(customID, username)
-	if err != nil {
-		b.respondError(s, i, err)
-		return
-	}
-	if err = s.InteractionRespond(i.Interaction, interactionResponse); err != nil {
-		b.respondError(s, i, err)
-	}
-}
-
 func (b *Bot) audioFileResponse(
 	customID CustomID,
 	username string,
-) (*discordgo.InteractionResponse, error) {
+) (*discordgo.WebhookParams, error) {
 
 	dialog, err := b.srtStore.GetDialogRange(customID.MediaID, customID.StartLine, customID.EndLine)
 	if err != nil {
@@ -515,13 +520,10 @@ func (b *Bot) audioFileResponse(
 	} else {
 		content = fmt.Sprintf("Posted by %s", username)
 	}
-	return &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content:     content,
-			Files:       files,
-			Attachments: util.ToPtr([]*discordgo.MessageAttachment{}),
-		},
+	return &discordgo.WebhookParams{
+		Content:     content,
+		Files:       files,
+		Attachments: []*discordgo.MessageAttachment{},
 	}, nil
 }
 
