@@ -37,18 +37,14 @@ func (c *Client) Transcribe(ctx context.Context, mp3Path string, outputPath stri
 	}
 	defer mp3.Close()
 
-	outputSRT, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer outputSRT.Close()
-
+	var cachePath = fmt.Sprintf("%s.json", mp3Path)
 	var transcript *aai.Transcript
-	if transcript, err = c.getCached(mp3Path); err != nil {
+	if transcript, err = c.getCached(cachePath); err != nil {
 		return err
 	}
+
 	if transcript == nil {
-		c.logger.Info("No Cache, submitting job...", slog.String("i", mp3Path))
+		c.logger.Info("No Cache, submitting job...", slog.String("i", mp3Path), slog.String("cache_path", cachePath))
 		newTranscript, err := client.Transcripts.TranscribeFromReader(ctx, mp3, params)
 		if err != nil {
 			return fmt.Errorf("transcription failed: %w", err)
@@ -61,10 +57,17 @@ func (c *Client) Transcribe(ctx context.Context, mp3Path string, outputPath stri
 	}
 
 	c.logger.Info("Converting result to SRT...", slog.String("o", outputPath))
+
+	outputSRT, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer outputSRT.Close()
+
 	return ToSrt(*transcript, outputSRT)
 }
-func (c *Client) getCached(mp3Path string) (*aai.Transcript, error) {
-	f, err := os.Open(fmt.Sprintf("%s.json", mp3Path))
+func (c *Client) getCached(cachePath string) (*aai.Transcript, error) {
+	f, err := os.Open(cachePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil

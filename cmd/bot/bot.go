@@ -82,11 +82,6 @@ func NewBotCommand(logger *slog.Logger) *cobra.Command {
 				return fmt.Errorf("no media dir specified")
 			}
 
-			//docsRepo, err := docs.NewRepo()
-			//if err != nil {
-			//	return fmt.Errorf("failed to create docs repo: %w", err)
-			//}
-
 			logger.Info("Starting bot...")
 			bot := bot.NewBot(
 				logger,
