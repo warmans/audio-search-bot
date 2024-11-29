@@ -113,7 +113,8 @@ func ExtractMeta(audioFilePath string) (*ProbeResult, error) {
 	}
 
 	result := &ProbeResult{}
-	json.NewDecoder(strings.NewReader(meta)).Decode(result)
-
+	if err := json.NewDecoder(strings.NewReader(meta)).Decode(result); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
