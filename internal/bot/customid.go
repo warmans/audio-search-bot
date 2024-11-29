@@ -3,6 +3,7 @@ package bot
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 type customIDOpt func(c *CustomID)
@@ -42,6 +43,11 @@ func (c CustomID) String() string {
 	return string(data)
 }
 
+func (c CustomID) Publication() string {
+	parts := strings.Split(c.MediaID, "-")
+	return parts[0]
+}
+
 func (c CustomID) withOption(options ...customIDOpt) CustomID {
 	clone := &CustomID{
 		MediaID:         c.MediaID,
@@ -62,6 +68,7 @@ const (
 	ContentModifierNone ContentModifier = iota
 	ContentModifierTextOnly
 	ContentModifierAudioOnly
+	ContentModifierVideoOnly
 )
 
 func encodeCustomIDForAction(action string, customID CustomID) string {

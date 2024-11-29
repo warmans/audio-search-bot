@@ -2,9 +2,11 @@ package importer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/jmoiron/sqlx"
+	"github.com/warmans/audio-search-bot/internal/audiometa"
 	"github.com/warmans/audio-search-bot/internal/metadata"
 	"github.com/warmans/audio-search-bot/internal/search"
 	"github.com/warmans/audio-search-bot/internal/store"
@@ -20,6 +22,10 @@ const filePollingInterval = time.Second * 10
 type pendingFile struct {
 	srtFilePath string
 	modTime     time.Time
+}
+
+func (f pendingFile) inferredMediaPath() string {
+	return fmt.Sprintf("%s.mp3", strings.TrimSuffix(f.srtFilePath, path.Ext(f.srtFilePath)))
 }
 
 func NewIncrementalImporter(
@@ -101,7 +107,19 @@ func (i *Incremental) startFileWatch(ctx context.Context) error {
 						i.logger.Error("failed stat file", slog.String("err", err.Error()))
 						continue
 					}
-					pendingFiles = append(pendingFiles, pendingFile{srtFilePath: event.Name, modTime: stat.ModTime()})
+
+					pending := pendingFile{srtFilePath: event.Name, modTime: stat.ModTime()}
+
+					mediaExists, err := i.mediaFileExists(pending)
+					if err != nil {
+						i.logger.Error("failed to locate associated media file", slog.String("err", err.Error()), slog.String("srtPath", event.Name))
+						continue
+					}
+					if !mediaExists {
+						i.logger.Info("no media file for SRT, skipping for now...", slog.String("srtPath", event.Name))
+						continue
+					}
+					pendingFiles = append(pendingFiles, pending)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -110,7 +128,7 @@ func (i *Incremental) startFileWatch(ctx context.Context) error {
 				i.logger.Error("watcher error", slog.String("err", err.Error()))
 			case <-ticker.C:
 				if len(pendingFiles) > 0 {
-					if err := i.importNewSRT(ctx, pendingFiles); err != nil {
+					if err := i.importNew(ctx, pendingFiles); err != nil {
 						i.logger.Error(
 							"Failed to import pending files",
 							slog.String("err", err.Error()),
@@ -175,7 +193,7 @@ func (i *Incremental) importAllNew(ctx context.Context) error {
 	}
 
 	i.logger.Info("Importing files...", slog.Int("num_files", len(toImport)), slog.String("dir", i.srtDir))
-	if err := i.importNewSRT(ctx, toImport); err != nil {
+	if err := i.importNew(ctx, toImport); err != nil {
 		i.logger.Error(
 			"Failed to import pending files",
 			slog.String("err", err.Error()),
@@ -184,9 +202,14 @@ func (i *Incremental) importAllNew(ctx context.Context) error {
 	return nil
 }
 
-func (i *Incremental) importNewSRT(ctx context.Context, pendingFiles []pendingFile) error {
+func (i *Incremental) importNew(ctx context.Context, pendingFiles []pendingFile) error {
 
 	for k, pending := range pendingFiles {
+
+		if err := audiometa.DumpMeta(pending.inferredMediaPath()); err != nil {
+			return fmt.Errorf("failed to dump metadata for file: %s: %w", pending.inferredMediaPath(), err)
+		}
+
 		err := i.conn.WithTx(func(tx *sqlx.Tx) error {
 			meta, err := metadata.CreateMetadataFromSRT(pending.srtFilePath, i.metadataDir)
 			if err != nil {
@@ -222,4 +245,16 @@ func (i *Incremental) importNewSRT(ctx context.Context, pendingFiles []pendingFi
 		}
 	}
 	return i.searcher.RefreshIndex()
+}
+
+func (i *Incremental) mediaFileExists(pending pendingFile) (bool, error) {
+	_, err := os.Stat(pending.inferredMediaPath())
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to stat media file %s: %w", pending.inferredMediaPath(), err)
+	}
+
+	return true, nil
 }

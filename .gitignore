@@ -4,3 +4,4 @@
 .env
 var/*.sqlite3
 var/*.sqlite3-*
+var/index

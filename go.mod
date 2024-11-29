@@ -12,7 +12,6 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
-	github.com/u2takey/ffmpeg-go v0.5.0
 	modernc.org/sqlite v1.33.1
 )
 
@@ -48,6 +47,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/u2takey/go-utils v0.3.1 // indirect
+	github.com/warmans/ffmpeg-go v1.0.0 // indirect
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
 	golang.org/x/sys v0.22.0 // indirect
 	golang.org/x/text v0.3.3 // indirect
