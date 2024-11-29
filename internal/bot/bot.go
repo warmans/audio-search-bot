@@ -354,18 +354,7 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 	if customID.ContentModifier == ContentModifierNone || customID.ContentModifier == ContentModifierTextOnly {
 		postButtons = append(postButtons, discordgo.Button{
 			// Label is what the user will see on the button.
-			Label: "Enable Audio",
-			Emoji: &discordgo.ComponentEmoji{
-				Name: "🔊",
-			},
-			// Style provides coloring of the button. There are not so many styles tho.
-			Style: discordgo.SecondaryButton,
-			// CustomID is a thing telling Discord which data to send when this button will be pressed.
-			CustomID: encodeCustomIDForAction("up", customID.withOption(withModifier(ContentModifierNone))),
-		})
-		postButtons = append(postButtons, discordgo.Button{
-			// Label is what the user will see on the button.
-			Label: "Enable Video",
+			Label: "Enable webm",
 			Emoji: &discordgo.ComponentEmoji{
 				Name: "🎞",
 			},
@@ -374,6 +363,18 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 			// CustomID is a thing telling Discord which data to send when this button will be pressed.
 			CustomID: encodeCustomIDForAction("up", customID.withOption(withModifier(ContentModifierVideoOnly))),
 		})
+		postButtons = append(postButtons, discordgo.Button{
+			// Label is what the user will see on the button.
+			Label: "Enable mp3",
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "🔊",
+			},
+			// Style provides coloring of the button. There are not so many styles tho.
+			Style: discordgo.SecondaryButton,
+			// CustomID is a thing telling Discord which data to send when this button will be pressed.
+			CustomID: encodeCustomIDForAction("up", customID.withOption(withModifier(ContentModifierNone))),
+		})
+
 	}
 
 	if customID.ContentModifier != ContentModifierTextOnly {
