@@ -398,6 +398,26 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 			CustomID: encodeCustomIDForAction("up", customID.withOption(withMediaType(MediaTypeNone))),
 		})
 	}
+	if customID.ContentModifier == ContentModifierNone && customID.MediaType != MediaTypeNone {
+		postButtons = append(postButtons, discordgo.Button{
+			// Label is what the user will see on the button.
+			Label: "Disable Text",
+			// Style provides coloring of the button. There are not so many styles tho.
+			Style: discordgo.SecondaryButton,
+			// CustomID is a thing telling Discord which data to send when this button will be pressed.
+			CustomID: encodeCustomIDForAction("up", customID.withOption(withModifier(ContentModifierDisableText))),
+		})
+	}
+	if customID.ContentModifier == ContentModifierDisableText {
+		postButtons = append(postButtons, discordgo.Button{
+			// Label is what the user will see on the button.
+			Label: "Enable Text",
+			// Style provides coloring of the button. There are not so many styles tho.
+			Style: discordgo.SecondaryButton,
+			// CustomID is a thing telling Discord which data to send when this button will be pressed.
+			CustomID: encodeCustomIDForAction("up", customID.withOption(withModifier(ContentModifierNone))),
+		})
+	}
 	editRow1 := []discordgo.MessageComponent{}
 	if customID.StartLine > 0 {
 		editRow1 = append(editRow1, discordgo.Button{

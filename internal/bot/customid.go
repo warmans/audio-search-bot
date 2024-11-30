@@ -62,6 +62,7 @@ func (c CustomID) withOption(options ...customIDOpt) CustomID {
 		EndLine:         c.EndLine,
 		NumContextLines: c.NumContextLines,
 		ContentModifier: c.ContentModifier,
+		MediaType:       c.MediaType,
 	}
 	for _, v := range options {
 		v(clone)
