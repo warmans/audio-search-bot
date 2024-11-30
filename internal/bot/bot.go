@@ -198,7 +198,8 @@ func (b *Bot) queryBegin(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				MediaID:         v.MediaID,
 				StartLine:       v.Pos,
 				EndLine:         v.Pos,
-				ContentModifier: ContentModifierTextOnly,
+				ContentModifier: ContentModifierNone,
+				MediaType:       MediaTypeNone,
 			})
 			if err != nil {
 				b.logger.Error("failed to marshal result", slog.String("err", err.Error()))
@@ -282,7 +283,7 @@ func (b *Bot) sendPreview(
 		_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 			Content: util.ToPtr("ERROR: Failed to create media"),
 		})
-		return err
+		return nil
 	}
 
 	interactionResponse.Components = b.buttons(customID)
@@ -293,8 +294,13 @@ func (b *Bot) sendPreview(
 		Files:      interactionResponse.Files,
 		Components: util.ToPtr(interactionResponse.Components),
 	})
+	if err != nil {
+		_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: util.ToPtr("ERROR: Failed to upload media"),
+		})
+	}
 
-	return err
+	return nil
 }
 
 func (b *Bot) queryComplete(s *discordgo.Session, i *discordgo.InteractionCreate, customIDPayload string) {
@@ -351,7 +357,7 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 		},
 	}
 
-	if customID.ContentModifier == ContentModifierNone || customID.ContentModifier == ContentModifierTextOnly {
+	if customID.MediaType != MediaTypeWebm {
 		postButtons = append(postButtons, discordgo.Button{
 			// Label is what the user will see on the button.
 			Label: "Enable webm",
@@ -361,8 +367,11 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 			// Style provides coloring of the button. There are not so many styles tho.
 			Style: discordgo.SecondaryButton,
 			// CustomID is a thing telling Discord which data to send when this button will be pressed.
-			CustomID: encodeCustomIDForAction("up", customID.withOption(withModifier(ContentModifierVideoOnly))),
+			CustomID: encodeCustomIDForAction("up", customID.withOption(withMediaType(MediaTypeWebm))),
 		})
+	}
+
+	if customID.MediaType != MediaTypeMp3 {
 		postButtons = append(postButtons, discordgo.Button{
 			// Label is what the user will see on the button.
 			Label: "Enable mp3",
@@ -372,12 +381,11 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 			// Style provides coloring of the button. There are not so many styles tho.
 			Style: discordgo.SecondaryButton,
 			// CustomID is a thing telling Discord which data to send when this button will be pressed.
-			CustomID: encodeCustomIDForAction("up", customID.withOption(withModifier(ContentModifierNone))),
+			CustomID: encodeCustomIDForAction("up", customID.withOption(withMediaType(MediaTypeMp3))),
 		})
-
 	}
 
-	if customID.ContentModifier != ContentModifierTextOnly {
+	if customID.MediaType != MediaTypeNone {
 		postButtons = append(postButtons, discordgo.Button{
 			// Label is what the user will see on the button.
 			Label: "Disable Media",
@@ -387,7 +395,7 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 			// Style provides coloring of the button. There are not so many styles tho.
 			Style: discordgo.SecondaryButton,
 			// CustomID is a thing telling Discord which data to send when this button will be pressed.
-			CustomID: encodeCustomIDForAction("up", customID.withOption(withModifier(ContentModifierTextOnly))),
+			CustomID: encodeCustomIDForAction("up", customID.withOption(withMediaType(MediaTypeNone))),
 		})
 	}
 	editRow1 := []discordgo.MessageComponent{}
@@ -431,7 +439,7 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 		if customID.StartLine > 0 {
 			editRow1 = append(editRow1, discordgo.Button{
 				// Label is what the user will see on the button.
-				Label: "Add Leading Dialog",
+				Label: "Add Previous Line",
 				Emoji: &discordgo.ComponentEmoji{
 					Name: "➕",
 				},
@@ -448,7 +456,7 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 		}
 		editRow1 = append(editRow1, discordgo.Button{
 			// Label is what the user will see on the button.
-			Label: "Add Following Dialog",
+			Label: "Add Next Line",
 			Emoji: &discordgo.ComponentEmoji{
 				Name: "➕",
 			},
@@ -468,7 +476,7 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 	if customID.EndLine-customID.StartLine > 0 {
 		editRow2 = append(editRow2, discordgo.Button{
 			// Label is what the user will see on the button.
-			Label: "Trim Leading Dialog",
+			Label: "Trim Top Line",
 			Emoji: &discordgo.ComponentEmoji{
 				Name: "✂",
 			},
@@ -484,7 +492,7 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 		})
 		editRow2 = append(editRow2, discordgo.Button{
 			// Label is what the user will see on the button.
-			Label: "Trim Trailing Dialog",
+			Label: "Trim Bottom Line",
 			Emoji: &discordgo.ComponentEmoji{
 				Name: "✂",
 			},
@@ -539,18 +547,8 @@ func (b *Bot) mediaResponse(
 	}
 
 	var files []*discordgo.File
-	if customID.ContentModifier == ContentModifierNone || customID.ContentModifier == ContentModifierAudioOnly {
-		mp3, err := b.createMp3(dialog[0].MediaFileName, dialog[0].StartTimestamp, dialog[len(dialog)-1].EndTimestamp)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create mp3: %w", err)
-		}
-		files = append(files, &discordgo.File{
-			Name:        createFileName(dialog, "mp3"),
-			ContentType: "audio/mpeg",
-			Reader:      mp3,
-		})
-	}
-	if customID.ContentModifier == ContentModifierVideoOnly {
+
+	if customID.MediaType == MediaTypeWebm {
 		vid, err := b.createVideo(dialog[0].MediaFileName, dialog[0].StartTimestamp, dialog[len(dialog)-1].EndTimestamp)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create video: %w", err)
@@ -561,9 +559,22 @@ func (b *Bot) mediaResponse(
 			Reader:      vid,
 		})
 	}
+	if customID.MediaType == MediaTypeMp3 {
+		mp3, err := b.createMp3(dialog[0].MediaFileName, dialog[0].StartTimestamp, dialog[len(dialog)-1].EndTimestamp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create mp3: %w", err)
+		}
+		files = append(files, &discordgo.File{
+			Name:        createFileName(dialog, "mp3"),
+			ContentType: "audio/mpeg",
+			Reader:      mp3,
+		})
+	}
 
 	var content string
-	if customID.ContentModifier == ContentModifierNone || customID.ContentModifier == ContentModifierTextOnly {
+	if customID.ContentModifier == ContentModifierDisableText {
+		content = fmt.Sprintf("Posted by %s", username)
+	} else {
 		content = fmt.Sprintf(
 			"%s\n\n %s",
 			dialogFormatted.String(),
@@ -575,8 +586,6 @@ func (b *Bot) mediaResponse(
 				username,
 			),
 		)
-	} else {
-		content = fmt.Sprintf("Posted by %s", username)
 	}
 	return &discordgo.InteractionResponseData{
 		Content:     content,

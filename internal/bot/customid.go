@@ -14,6 +14,12 @@ func withModifier(mod ContentModifier) customIDOpt {
 	}
 }
 
+func withMediaType(t MediaType) customIDOpt {
+	return func(c *CustomID) {
+		c.MediaType = t
+	}
+}
+
 func withStartLine(pos int32) customIDOpt {
 	return func(c *CustomID) {
 		c.StartLine = pos
@@ -30,6 +36,7 @@ type CustomID struct {
 	StartLine       int32           `json:"s,omitempty"`
 	EndLine         int32           `json:"f,omitempty"`
 	NumContextLines int             `json:"c,omitempty"`
+	MediaType       MediaType       `json:"m,omitempty"`
 	ContentModifier ContentModifier `json:"t,omitempty"`
 }
 
@@ -66,9 +73,15 @@ type ContentModifier uint8
 
 const (
 	ContentModifierNone ContentModifier = iota
-	ContentModifierTextOnly
-	ContentModifierAudioOnly
-	ContentModifierVideoOnly
+	ContentModifierDisableText
+)
+
+type MediaType uint8
+
+const (
+	MediaTypeNone MediaType = iota
+	MediaTypeWebm
+	MediaTypeMp3
 )
 
 func encodeCustomIDForAction(action string, customID CustomID) string {
