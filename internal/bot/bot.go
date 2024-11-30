@@ -283,7 +283,7 @@ func (b *Bot) sendPreview(
 		_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 			Content: util.ToPtr("ERROR: Failed to create media"),
 		})
-		return nil
+		return err
 	}
 
 	interactionResponse.Components = b.buttons(customID)
@@ -298,6 +298,7 @@ func (b *Bot) sendPreview(
 		_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 			Content: util.ToPtr("ERROR: Failed to upload media"),
 		})
+		return err
 	}
 
 	return nil
