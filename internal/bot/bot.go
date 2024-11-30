@@ -691,6 +691,7 @@ func (b *Bot) createVideo(
 			ffmpeg_go.KwArgs{
 				"map_0":  "0:a",
 				"map_1":  "1:v",
+				"vf":     "scale=220:220",
 				"format": "webm",
 			},
 		).
