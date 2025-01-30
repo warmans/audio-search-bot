@@ -16,6 +16,7 @@ import (
 	"io"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"path"
 	"regexp"
@@ -310,16 +311,6 @@ func (b *Bot) queryComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 		return
 	}
 
-	if customIDPayload == "" {
-		b.respondError(s, i, fmt.Errorf("missing customID"))
-		return
-	}
-	customID, err := decodeCustomIDPayload(customIDPayload)
-	if err != nil {
-		b.respondError(s, i, fmt.Errorf("failed to decode customID: %w", err))
-		return
-	}
-
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{},
@@ -328,20 +319,26 @@ func (b *Bot) queryComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 		return
 	}
 
-	username := "unknown"
-	if i.Member != nil {
-		username = i.Member.DisplayName()
+	var files []*discordgo.File
+	if len(i.Message.Attachments) > 0 {
+		attachment := i.Message.Attachments[0]
+		image, err := http.Get(attachment.URL)
+		if err != nil {
+			b.respondError(s, i, fmt.Errorf("failed to get original message attachment: %w", err))
+			return
+		}
+		defer image.Body.Close()
+
+		files = append(files, &discordgo.File{
+			Name:        attachment.Filename,
+			Reader:      image.Body,
+			ContentType: attachment.ContentType,
+		})
 	}
 
-	// respond audio
-	interactionResponse, err := b.mediaResponse(customID, username)
-	if err != nil {
-		b.respondError(s, i, err)
-		return
-	}
-	if _, err = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
-		Content: interactionResponse.Content,
-		Files:   interactionResponse.Files,
+	if _, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+		Content: i.Message.Content,
+		Files:   files,
 	}); err != nil {
 		b.respondError(s, i, err)
 		return
