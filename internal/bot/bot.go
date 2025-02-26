@@ -355,19 +355,19 @@ func (b *Bot) buttons(customID CustomID) []discordgo.MessageComponent {
 		},
 	}
 
-	if customID.MediaType != MediaTypeWebm {
-		postButtons = append(postButtons, discordgo.Button{
-			// Label is what the user will see on the button.
-			Label: "Enable webm",
-			Emoji: &discordgo.ComponentEmoji{
-				Name: "🎞",
-			},
-			// Style provides coloring of the button. There are not so many styles tho.
-			Style: discordgo.SecondaryButton,
-			// CustomID is a thing telling Discord which data to send when this button will be pressed.
-			CustomID: encodeCustomIDForAction("up", customID.withOption(withMediaType(MediaTypeWebm))),
-		})
-	}
+	//if customID.MediaType != MediaTypeWebm {
+	//	postButtons = append(postButtons, discordgo.Button{
+	//		// Label is what the user will see on the button.
+	//		Label: "Enable webm",
+	//		Emoji: &discordgo.ComponentEmoji{
+	//			Name: "🎞",
+	//		},
+	//		// Style provides coloring of the button. There are not so many styles tho.
+	//		Style: discordgo.SecondaryButton,
+	//		// CustomID is a thing telling Discord which data to send when this button will be pressed.
+	//		CustomID: encodeCustomIDForAction("up", customID.withOption(withMediaType(MediaTypeWebm))),
+	//	})
+	//}
 
 	if customID.MediaType != MediaTypeMp3 {
 		postButtons = append(postButtons, discordgo.Button{
