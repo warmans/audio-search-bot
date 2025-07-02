@@ -31,7 +31,7 @@ func NewMP3Command(logger *slog.Logger) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "mp3",
-		Short: "extract a correctly formatted episode name from stdin",
+		Short: "Transcribe an mp3 to srt",
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			assemblyAiKey := os.Getenv("ASSEMBLY_AI_ACCESS_TOKEN")
