@@ -1,6 +1,6 @@
 FROM debian:stable-slim
 
-RUN apt update && apt install -y gcc libfreetype-dev ffmpeg
+RUN apt update && apt install -y gcc libfreetype-dev ffmpeg ca-certificates
 
 RUN mkdir -p /opt/audio-search-bot/var/metadata && chown -R nobody /opt/audio-search-bot
 
